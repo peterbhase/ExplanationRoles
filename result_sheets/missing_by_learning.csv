@@ -1,0 +1,10 @@
+seed,method,condition,dev_acc,test_acc
+0,textcat,learning,98.9,98.652
+0,textcat,fixed,90.04,90.178
+0,textcat,optimal,99.32,99.184
+0,ELV,learning,99.09,98.968
+0,ELV,fixed,91.34,90.902
+0,ELV,optimal,98.59,98.356
+0,Baseline,No Retrieval,62.26,62.19
+0,Baseline,"No Retrieval
+(10x Train)",87.23,87.108

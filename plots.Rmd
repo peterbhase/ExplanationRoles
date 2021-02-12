@@ -1,0 +1,804 @@
+---
+title: "plots"
+author: "Peter Hase"
+date: "1/16/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(scales)
+library(latex2exp)
+library(extrafont)
+library(extrafontdb)
+# font_import()
+# loadfonts(device = "win")
+```
+
+```{r load data}
+evidential_optR_by_method_n <- read_csv('result_sheets/evidential_optR_by_method_n.csv')
+evidential_optR_by_method_c <- read_csv('result_sheets/evidential_optR_by_method_c.csv')
+memorization_by_num_tasks <- read_csv('result_sheets/memorization_by_num_tasks.csv')
+missing_by_learning <- read_csv('result_sheets/missing_by_learning.csv')
+evidential_by_learning <- read_csv('result_sheets/evidential_by_learning.csv')
+recomposable_by_learning <- read_csv('result_sheets/recomposable_by_learning.csv')
+missing_by_feature_corr <- read_csv('result_sheets/missing_by_feature_correlation.csv')
+missing_by_r_smoothness <- read_csv('result_sheets/missing_by_r_smoothness.csv')
+translate_by_n <- read_csv('result_sheets/missing_opt_by_translate_model_n.csv')
+memorization_by_n <- read_csv('result_sheets/memorization_by_n.csv')
+evidential_by_init <- read_csv('result_sheets/evidential_by_init.csv')
+evidential_by_retriever <- read_csv('result_sheets/evidential_by_retriever.csv')
+by_corr <- read_csv('result_sheets/missing_by_scan_corr.csv')
+by_k <- read_csv('result_sheets/missing_textcat_by_k.csv')
+seed_variance <- read_csv('result_sheets/seed_variance.csv')
+dev_by_k <- read_csv('result_sheets/esnli_textcat_roberta-base_n10000_c2_k8_seed0_by_k.csv')
+```
+
+```{r globals}
+
+theme = theme(axis.ticks = element_blank(),
+        axis.text = element_text(size=14, color='black'),
+        axis.title.y = element_text(vjust=.5, angle=0),
+        axis.line.x = element_line(colour = 'black', size = .6),
+        axis.line.y = element_line(colour = 'black', size = .6),
+        panel.background = element_blank(),
+        panel.border = element_blank(),
+        panel.grid = element_line(colour = '#DFDFDF', size = 0),
+        plot.title = element_text(hjust = 0.5),
+        text = element_text(size=16, family="serif"),
+        legend.text = element_text(size=16),
+        # legend.title = element_blank(),
+        legend.box.background = element_blank(),
+        legend.position = "right")
+
+cbp1 <- c("#E69F00", "#56B4E9", "#009E73",
+          "#0072B2", "#D55E00", "#999999", "#F0E442",  "#CC79A7")
+
+# get CIs
+selected_data <- seed_variance %>%
+    na.omit() %>% 
+    mutate(CI=1.96*sqrt(test_acc*(100-test_acc)/50000))
+
+(CI <- selected_data %>%
+  mutate(
+   method = case_when(method=='baseline'~'No Retrieval',
+                  method=='textcat-missing'~"Full-Info",
+                  method=='textcat'~"Textcat special explanations",
+                  method=='ELV'~"H-mean special explanations",
+                   TRUE ~ as.character(method)),
+   method=factor(method, levels=c('No Retrieval', "Full-Info", "Textcat special explanations", "H-mean special explanations"))) %>%
+  group_by(method) %>%
+  summarise(CI = 1.96*sd(test_acc)/sqrt(n())))
+
+CIs <- CI %>% pull(CI)
+
+# use seed CIs rather than sampling variance bc seed CIs are higher and analytically combinining them is pretty complex
+# we assume some invariances in order to assign CIs. memorization gets one, then full-info explanation gets one. lastly, for there's one each for H-MEAN with special explanations and textcat with special explanations
+
+```
+
+
+```{r evidential_optR_by_method_n}
+
+selected_data <- evidential_optR_by_method_n %>%
+    group_by(method,n) %>%
+    filter(dev_acc==max(dev_acc)) %>%
+    mutate(CI=case_when(method=='baseline'~CIs[1],
+                        method=='ELV'~CIs[4],
+                        method=='textcat'~CIs[3]),
+           method2 = case_when(method=='ELV'~"H-Mᴇᴀɴ",
+                               method=='textcat'~paste("TᴇxᴛCᴀᴛ"),
+                               TRUE ~ as.character(method))) # note scaling by 100 washes out in sqrt
+
+title <- "Methods Across Sample Size"
+xlab <- "Training Set Size" 
+ylab <- "Acc."
+
+# side-by-side bar
+(bars <- selected_data %>% 
+  ggplot(aes(as.factor(n),test_acc,group=method2,fill=method2)) + 
+  geom_col(position='dodge', width = 0.5) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.2,
+                 position=position_dodge(width=.5)) + 
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_fill_manual(values = cbp1) + 
+  theme)
+
+# lines
+(lines <- selected_data %>% 
+  ggplot(aes(n,test_acc,group=method2,color=method2)) + 
+  geom_line(lwd=1) +
+  geom_point(shape=19, size=2) + 
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=120) + 
+  labs(title=title) +
+  scale_x_continuous(limits=c(500,10000), breaks=c(1000,2500,5000,10000), oob=rescale_none) +
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) +
+  xlab(xlab) + ylab(ylab) +
+  scale_color_manual(values = cbp1, name="") + 
+  theme
+)
+
+ggsave(lines, filename = "figures/evidential_optR_by_method_n.pdf", device = cairo_pdf, 
+       width = 7, height = 4, units = "in")
+
+```
+
+
+```{r evidential_optR_by_method_c}
+
+# CI=1.96*sqrt(test_acc*(100-test_acc)/50000),
+
+selected_data <- evidential_optR_by_method_c %>%
+    group_by(method,c) %>%
+    filter(dev_acc==max(dev_acc)) %>%
+    mutate(CI=case_when(method=='baseline'~CIs[1],
+                        method=='ELV'~CIs[4],
+                        method=='textcat'~CIs[3]),
+           method2 = case_when(method=='ELV'~'H-Mᴇᴀɴ',
+                               # method=='textcat'~'$\\alpha^\\beta$',
+                               method=='textcat'~paste("TᴇxᴛCᴀᴛ"),
+                               TRUE ~ as.character(method))) # note scaling by 100 washes out in sqrt
+
+title <- "Accuracy by Method and Context Size"
+xlab <- "Context Size" 
+ylab <- "Acc."
+
+# side-by-side bar
+(bars <- selected_data %>% 
+  ggplot(aes(as.factor(c),test_acc,group=method2,fill=method2)) + 
+  geom_col(position='dodge', width = 0.5) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.2,
+                 position=position_dodge(width=.5)) + 
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_fill_manual(values = cbp1) + 
+  theme)
+
+# lines
+(lines <- selected_data %>% 
+  ggplot(aes(c,test_acc,group=method2,color=method2)) + 
+  geom_line(lwd=1) +
+  geom_point(shape=19, size=2) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.6, position=position_dodge(0.05)) +
+  scale_x_continuous(limits=c(1,15), oob=rescale_none,
+                     breaks=seq(2,14,2)) + 
+  scale_y_continuous(limits=c(80,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_color_manual(values = cbp1, name = "Method") + 
+  theme)
+
+ggsave(lines, filename = "figures/evidential_optR_by_method_c.pdf", device = cairo_pdf, 
+       width = 7, height = 4, units = "in")
+
+```
+
+```{r memorization_by_num_tasks}
+
+selected_data <- memorization_by_num_tasks %>%
+    filter(model=='roberta-base') %>%
+    group_by(num_tasks,signal_task) %>%
+    filter(dev_acc==max(dev_acc)) %>%
+    mutate(CI=CIs[1],
+           method2 = case_when(signal_task==1~'Task Signalled',
+                               signal_task==0~'Task Inferred',
+                               signal_task==2~'Task Given',
+                               TRUE ~ as.character(signal_task)),
+           method2 = factor(method2, levels=c("Task Given", "Task Signalled", "Task Inferred"))) # note scaling by 100 washes out in sqrt
+
+title <- TeX('When Can the Task Be Inferred?')
+xlab <- TeX("$\\textit{num-tasks}$")
+ylab <- "Acc."
+
+# side-by-side bar
+(bars <- selected_data %>% 
+  ggplot(aes(as.factor(num_tasks),test_acc,group=method2,fill=method2)) + 
+  geom_col(position='dodge', width = 0.5) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.2,
+                 position=position_dodge(width=.5)) + 
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_fill_manual(values = cbp1, name = "") + 
+  theme)
+
+# lines
+(lines <- selected_data %>% 
+  ggplot(aes(num_tasks,test_acc,group=method2,color=method2)) + 
+  geom_line(lwd=1) +
+  geom_point(aes(shape=method2), size=2) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=6) + 
+  scale_x_continuous(limits=c(20,500), oob=rescale_none) + 
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_shape_manual(values=c(19,15,17), name = "RoBERTa-base", 
+                     labels=c("Task Given", "Index Only","No Index")) +
+  scale_color_manual(values = cbp1, name = "RoBERTa-base", 
+                     labels=c("Task Given", "Index Only","No Index")) + 
+  # guides(fill = guide_legend(override.aes = list(colour = NULL)))
+  theme)
+
+ggsave(lines, filename = "figures/memorization_by_num_tasks.pdf", device = cairo_pdf, 
+       width = 7, height = 4, units = "in")
+
+```
+```{r memorization_by_num_tasks x model}
+
+selected_data <- memorization_by_num_tasks %>%
+    filter(signal_task==1) %>%
+    mutate(CI=CIs[1],
+           method2 = case_when(signal_task==1~'Task Signalled',
+                               signal_task==0~'Task Inferred',
+                               signal_task==2~'Task Given',
+                               TRUE ~ as.character(signal_task)),
+           model = case_when(model=='roberta-base'~'RoBERTa-base',
+                             model=='roberta-large'~'RoBERTa-large',
+                             TRUE ~ as.character(model))
+    )
+           # method2 = factor(method2, levels=c("Task Given", "Task Signalled", "Task Inferred"))) # note scaling by 100 washes out in sqrt
+
+title <- TeX('Task Inference by Model Size')
+xlab <- TeX("$\\textit{num-tasks}$")
+ylab <- "Acc."
+
+# lines
+(lines <- selected_data %>% 
+  ggplot(aes(num_tasks,test_acc,group=model,color=model)) + 
+  geom_line(lwd=1) +
+  geom_point(aes(shape=model), size=2) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=6) + 
+  scale_x_continuous(limits=c(20,500), oob=rescale_none) + 
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_shape_manual(values=c(19,15), name = "Model") +
+  scale_color_manual(values = cbp1, name = "Model") + 
+  # guides(fill = guide_legend(override.aes = list(colour = NULL)))
+  theme)
+
+
+ggsave(lines, filename = "figures/memorization_by_num_tasks_by_model.pdf", device = cairo_pdf, 
+       width = 7, height = 4, units = "in")
+
+```
+
+```{r missing_by_learning}
+
+selected_data <- missing_by_learning %>%
+    filter(method=='ELV' | method=='textcat' | method=='Baseline') %>%
+    group_by(method,condition) %>%
+    filter(dev_acc==max(dev_acc)) %>%
+    mutate(CI=case_when(method=='baseline'~CIs[1],
+                        method=='ELV'~CIs[2],
+                        method=='textcat'~CIs[2],
+                        TRUE ~ CIs[1]),
+           method = case_when(method=='ELV'~'H-Mᴇᴀɴ',
+                               method=='textcat'~paste("TᴇxᴛCᴀᴛ"),
+                               TRUE ~ as.character(method)),
+           condition = case_when(condition=='learning'~'Learned',
+                               condition=='fixed'~'Fixed',
+                               condition=='optimal'~'Optimal',
+                               TRUE ~ as.character(condition)),
+           condition=factor(condition, levels=c("No Retrieval", "No Retrieval\n(10x Train)", "Fixed", "Learned", "Optimal"))
+    )
+
+title <- TeX('Is Explanation Retrieval Helpful?')
+xlab <- TeX("")
+ylab <- "Acc."
+
+# side-by-side bar
+(bars <- selected_data %>% 
+  ggplot(aes(method,test_acc,group=condition,fill=condition)) + 
+  geom_col(position='dodge', width = 0.5) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.2,
+    position=position_dodge(width=.5)) +
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  # scale_fill_manual(values = c("#656565", cbp1), name = "Retrieval Model") +
+  scale_fill_manual(values = c("#656565", "#999999", cbp1), name = "Retrieval Model") + 
+  theme)
+
+(bars <- selected_data %>%
+  ggplot(aes(method,test_acc,group=condition, 
+             fill=condition)) + 
+  geom_bar(size=4, stat='identity', position='dodge', width = 0.5) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.2,
+    position=position_dodge(width=.5)) +
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  # scale_fill_manual(values = c("#656565", cbp1), name = "Retrieval Model") +
+  scale_fill_manual(values = c("#656565", "#D9D9D9", cbp1), name = "Retrieval Model") + 
+  theme)
+
+# ,  ""
+
+ggsave(bars, filename = "figures/missing_by_learning.pdf", device = cairo_pdf, 
+       width = 7, height = 4, units = "in")
+
+```
+
+```{r evidential_by_learning}
+
+selected_data <- recomposable_by_learning %>%
+    filter(method=='ELV' | method=='textcat') %>%
+    group_by(method,condition) %>%
+    filter(dev_acc==max(dev_acc)) %>%
+    mutate(CI=case_when(method=='baseline'~CIs[1],
+                        method=='ELV'~CIs[4],
+                        method=='textcat'~CIs[3]),
+           method = case_when(method=='ELV'~'H-Mᴇᴀɴ',
+                               method=='textcat'~paste("TᴇxᴛCᴀᴛ"),
+                               TRUE ~ as.character(method)),
+           condition = case_when(condition=='learning'~'Learned',
+                               condition=='fixed'~'Fixed',
+                               condition=='optimal'~'Optimal',
+                               TRUE ~ as.character(condition)),
+           condition=factor(condition, levels=c("No Retrieval", "Fixed", "Learned", "Optimal")),
+           kind='Recomposable',
+    ) %>%
+    left_join(missing_by_learning %>% filter(method=='Baseline'))
+
+evidential <-  evidential_by_learning %>%
+    filter(method=='ELV' | method=='textcat') %>%
+    group_by(method,condition) %>%
+    filter(dev_acc==max(dev_acc)) %>%
+    mutate(CI=case_when(method=='baseline'~CIs[1],
+                        method=='ELV'~CIs[4],
+                        method=='textcat'~CIs[3]),
+           method = case_when(method=='ELV'~'H-Mᴇᴀɴ',
+                               method=='ELV'~'H-Mᴇᴀɴ',
+                               method=='textcat'~paste("TᴇxᴛCᴀᴛ"),
+                               method=='textcat'~paste("TᴇxᴛCᴀᴛ"),
+                               TRUE ~ as.character(method)),
+           condition = case_when(condition=='learning'~'Learned',
+                               condition=='fixed'~'Fixed',
+                               condition=='optimal'~'Optimal',
+                               TRUE ~ as.character(condition)),
+           condition=factor(condition, levels=c("No Retrieval", "Fixed", "Learned", "Optimal")),
+           kind='Evidential',
+    )
+
+selected_data <- rbind(selected_data, evidential)
+
+title <- TeX('Retrieval By Explanation Kind')
+xlab <- TeX("")
+ylab <- "Acc."
+
+# side-by-side bar
+(bars <- selected_data %>% 
+  ggplot(aes(method,test_acc,group=condition,fill=condition)) + 
+  geom_col(position='dodge', width = 0.5) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.2,
+    position=position_dodge(width=.5)) +
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_fill_manual(values = c(cbp1), name = "Retrieval Model") + 
+  theme + 
+  facet_wrap( ~ kind, nrow=1) 
+)
+
+(bars <- selected_data %>% 
+  ggplot(aes(method,test_acc,group=condition,fill=condition)) + 
+  geom_col(position='dodge', width = 0.5) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.2,
+    position=position_dodge(width=.5)) +
+  scale_y_continuous(limits=c(70,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_fill_manual(values = c(cbp1), name = "Retrieval Model") + 
+  theme + 
+  facet_wrap( ~ kind, nrow=1) 
+)
+
+ggsave(bars, filename = "figures/evidential_by_learning.pdf", device = cairo_pdf, 
+       width = 7, height = 4, units = "in")
+
+```
+
+
+```{r missing_by_feature_corr}
+
+selected_data <- missing_by_feature_corr %>%
+    filter(condition=='optR' | condition=='Baseline') %>%
+    mutate(CI=case_when(condition=='Baseline'~CIs[1],
+                        condition=='optR'~CIs[2]),
+           causal = case_when(causal==1~'Causal Integers',
+                              causal==0~'(m,n,r,d)',
+                              causal==-1~'No Explanation',
+                               TRUE ~ as.character(causal)),
+           condition = case_when(condition=='optR'~'Opt. Retrieval',
+                   TRUE ~ as.character(condition)),
+           corr = case_when(corr==1~'Weak/Strong Corr. = 1',
+                            corr==.5~'Weak/Strong Corr. = 0',
+                               TRUE ~ as.character(corr)),           
+           corr=factor(corr, levels=c("Weak/Strong Corr. = 0", "Weak/Strong Corr. = 1")),
+           causal=factor(causal, levels=c("No Explanation", "(m,n,r,d)", "Causal Integers")),
+    )
+
+title <- TeX('Can Explanations Indicate Strong Features?')
+xlab <- TeX("")
+ylab <- "Acc."
+
+# side-by-side bar
+(bars <- selected_data %>% 
+  ggplot(aes(condition,test_acc,group=causal,fill=causal)) + 
+  geom_col(position='dodge', width = 0.5) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.2,
+    position=position_dodge(width=.5)) +
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_fill_manual(values = c(cbp1), name = "Given Explanation") + 
+  theme + 
+  facet_wrap( ~ corr, nrow=1) 
+)
+
+ggsave(bars, filename = "figures/missing_by_feature_corr.pdf", device = cairo_pdf, 
+       width = 8, height = 4, units = "in")
+
+```
+
+
+
+```{r missing_by_r_smoothness_disjoint}
+
+selected_data <- missing_by_r_smoothness %>%
+  filter(r==1) %>%
+    mutate(CI=case_when(train==-1~CIs[1],
+                        train==0~CIs[3],
+                        train==1~CIs[3]),
+           retrieval = case_when(train==1~'Learned',
+                               train==0~'Fixed',
+                               train==-1~'No Retrieval',
+                               TRUE ~ as.character(train)),
+           smooth = case_when(smoothness==0~"Non-smooth",
+                               smoothness==1~'Smooth',
+                               TRUE ~ as.character(smoothness)),
+           retrieval=factor(retrieval, levels=c("No Retrieval", "Fixed", "Learned")),
+           r2 = case_when(r==1~"Num-per-task: 1",
+                          r==4~"Num-per-task: 4",),
+           r=factor(r, levels=c("1", "2", "4", "8")),
+    )
+
+title <- expression(paste('Generalizing From ', italic("Relevant"), " Explanations"))
+xlab <- expression(paste("Map from ", italic("index"), " to (", italic("m,n,r,d") ,")"))
+ylab <- "Acc."
+
+# side-by-side bar
+(bars <- selected_data %>% 
+  ggplot(aes(smooth,test_acc,group=retrieval,fill=retrieval)) + 
+  geom_col(position='dodge', width = 0.5) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.2,
+    position=position_dodge(width=.5)) +
+  scale_y_continuous(limits=c(60,85), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_fill_manual(values = c("#656565", cbp1), name = "Retrieval") + 
+  theme
+  )
+
+ggsave(bars, filename = "figures/missing_by_r_smoothness.pdf", device = cairo_pdf, 
+       width = 7, height = 4, units = "in")
+
+```
+
+
+```{r translate_n}
+
+selected_data <- translate_by_n %>%
+    mutate(CI=CIs[2],
+           translate = case_when(translate==1~"full-info +5",
+                               translate==0~"full-info",
+                               TRUE ~ as.character(translate)))
+
+title <- "Interpreting the Explanations"
+xlab <- "Training Set Size"
+ylab <- "Acc."
+
+# lines
+(lines <- selected_data %>% 
+  ggplot(aes(n,test_acc,group=translate,color=translate)) + 
+  geom_point(shape=19, size=2) + 
+  geom_line(lwd=1) +
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=4,
+    position=position_dodge(width=.5)) +
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_color_manual(values = cbp1, name="Explanation Kind") + 
+  theme)
+
+ggsave(lines, filename = "figures/translate_by_n.pdf", device = cairo_pdf, 
+       width = 7, height = 4, units = "in")
+
+```
+
+
+```{r memorization_by_n}
+
+selected_data <- memorization_by_n %>%
+    filter(!(seed==0 & n==20000)) %>% # bad seed
+    mutate(CI=CIs[1])
+
+title <- "No-Retrieval Baseline by Training Set Size"
+xlab <- "Training Set Size"
+ylab <- "Acc."
+
+# lines
+(lines <- selected_data %>% 
+  ggplot(aes(n,test_acc)) + 
+  geom_point(shape=19, size=2, color="#656565") + 
+  geom_line(lwd=1,color="#656565") +
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=2,
+    position=position_dodge(width=.05)) +
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_color_manual(values = cbp1, name="Explanation Kind") + 
+  theme)
+
+ggsave(lines, filename = "figures/memorization_by_n.pdf", device = cairo_pdf, 
+       width = 7, height = 4, units = "in")
+
+```
+
+
+```{r evidential_by_init}
+
+selected_data <- evidential_by_init %>%
+    mutate(CI=CIs[3],
+           epochs = case_when(epochs==-1~'Always',
+                               TRUE ~ as.character(epochs)),
+           degrade = case_when(degrade==0~"0",
+                               degrade==.005~"5e-3",
+                               degrade==.01~"1e-2",
+                               degrade==.05~"5e-2",
+                   TRUE ~ as.character(degrade)),
+           degrade=factor(degrade, levels=c("0","5e-3","1e-2","5e-2")),
+           epochs=factor(epochs, levels=c("0", "4", "8", "Always")),
+    )
+
+title <- TeX('Classifier and Retriever Co-Dependence')
+xlab <- TeX("Epochs Retriever Fixed For")
+ylab <- "Acc."
+
+# side-by-side bar
+(bars <- selected_data %>% 
+  ggplot(aes(epochs,test_acc,group=degrade,fill=degrade)) + 
+  geom_col(position='dodge', width = 0.5) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.2,
+    position=position_dodge(width=.5)) +
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_fill_manual(values = c(cbp1), name = TeX("Retriever Noise $\\sigma$")) + 
+  theme
+)
+
+ggsave(bars, filename = "figures/evidential_by_init.pdf", device = cairo_pdf, 
+       width = 7, height = 4, units = "in")
+
+```
+
+```{r evidential_by_retriever}
+
+selected_data <- evidential_by_retriever %>%
+    mutate(CI=CIs[3],
+           train = case_when(train==1~'Learned',
+                             train==0~'Fixed',
+                               TRUE ~ as.character(train)),
+           retriever = case_when(retriever=="random"~"Random",
+                               retriever=="roberta-base"~"RoBERTa",
+                               retriever=="sentencebert"~"Sentence-RoBERTa",
+                   TRUE ~ as.character(retriever)),
+           train=factor(train, levels=c("Fixed","Learned")),
+           retriever=factor(retriever, levels=c("Random", "RoBERTa", "Sentence-RoBERTa")),
+    )
+
+title <- TeX('Effect of Retrieval Model Choice')
+xlab <- TeX("Pretrained Retrieval Model")
+ylab <- "Acc."
+
+# side-by-side bar
+(bars <- selected_data %>% 
+  ggplot(aes(retriever,test_acc,group=train,fill=train)) + 
+  geom_col(position='dodge', width = 0.5) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.2,
+    position=position_dodge(width=.5)) +
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_fill_manual(values = c(cbp1), name = TeX("Retrieval")) + 
+  theme
+)
+
+ggsave(bars, filename = "figures/evidential_by_retriever.pdf", device = cairo_pdf, 
+       width = 7, height = 4, units = "in")
+
+```
+
+```{r by_corr}
+
+# check cors
+n <- 1000
+balanced <- c(rep(0,500),rep(1,500))
+match<-.5*500
+v1 <- c(rep(0,match), rep(1, 500-match), rep(0, 500-match), rep(1,match))
+cor(balanced, v1)
+match<-.6*500
+v1 <- c(rep(0,match), rep(1, 500-match), rep(0, 500-match), rep(1,match))
+cor(balanced, v1)
+match<- .7*500
+v2 <- c(rep(0,match), rep(1, 500-match), rep(0, 500-match), rep(1,match))
+cor(balanced, v2)
+match<- .8*500
+v3 <- c(rep(0,match), rep(1, 500-match), rep(0, 500-match), rep(1,match))
+cor(balanced, v3)
+match<- .9*500
+v4 <- c(rep(0,match), rep(1, 500-match), rep(0, 500-match), rep(1,match))
+cor(balanced, v4)
+
+selected_data <- by_corr %>%
+    mutate(CI=case_when(condition=='memorization'~CIs[1],
+                        TRUE~CIs[3]),
+           corr = case_when(corr==.5~"0",
+                            corr==.6~"0.2",
+                            corr==.7~"0.4",
+                            corr==.8~"0.6",
+                            corr==.9~"0.8",
+                            corr==1~"1",
+                             TRUE ~ as.character(corr)),
+           condition=case_when(condition=='memorization'~"No Retrieval",
+                               condition=='optR'~"Optimal Retrieval",
+                               TRUE ~ as.character(condition)),
+           corr = factor(corr, levels=c("0", "0.2", "0.4", "0.6", "0.8", "1"))
+    )
+
+title <- TeX("Accuracy By Weak/Strong Correlation")
+xlab <- TeX("Correlation (r)")
+ylab <- "Acc."
+
+# side-by-side bar
+(bars <- selected_data %>% 
+  ggplot(aes(corr,test_acc,group=condition,fill=condition)) + 
+  geom_col(position='dodge', width = 0.5) + 
+  labs(title=title) +
+  geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.2,
+                 position=position_dodge(width=.5)) + 
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_fill_manual(values = cbp1) + 
+  theme)
+
+# lines
+(lines <- selected_data %>% 
+  ggplot(aes(corr,test_acc,group=condition,color=condition)) + 
+  # geom_smooth(method='loess', lwd=1.1) +
+  geom_line(lwd=1) +
+  geom_point(shape=19, size=2) + 
+  labs(title=title, x=expression(italic('Pearson\'s r'))) +
+    geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.1) + 
+  # scale_x_continuous(limits=c(0,25000), breaks=c(1000,2500,5000,10000), oob=rescale_none) + 
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  ylab(ylab) +
+  scale_color_manual(values = c("#656565", cbp1), name="") + 
+  theme)
+
+ggsave(lines, filename = "figures/by_corr.pdf", device = cairo_pdf, 
+       width = 7.01, height = 4, units = "in")
+
+```
+
+
+```{r by_k}
+
+selected_data <- by_k %>%
+    na.omit() %>%
+    mutate(CI=case_when(condition=='missing'~CIs[3],
+                        condition=='evidential'~CIs[4]),
+           condition=case_when(condition=='missing'~"Full-info",
+                               condition=='evidential'~"Evidential",
+                               TRUE ~ as.character(condition))
+    )
+
+title <- expression(paste('How Does ', italic("k"), " Influence Retrieval Learning?"))
+ylab <- "Acc."
+
+# lines
+(lines <- selected_data %>% 
+  ggplot(aes(k,test_acc,group=condition,color=condition)) + 
+  # geom_smooth(method='loess', lwd=1.1) +
+  geom_line(lwd=1) +
+  geom_point(shape=19, size=2) + 
+  labs(title=title, x=expression(italic('k'))) +
+    geom_errorbar(aes(ymin=test_acc-CI, ymax=test_acc+CI), width=.2) + 
+  # scale_x_continuous(limits=c(0,25000), breaks=c(1000,2500,5000,10000), oob=rescale_none) + 
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  scale_x_continuous(limits=c(0,10), oob=rescale_none, 
+                     labels=c(1,2,4,6,8,10), breaks=c(1,2,4,6,8,10)) + 
+  ylab(ylab) +
+  scale_color_manual(values = c(cbp1), name="Explanation Kind") + 
+  theme)
+
+ggsave(lines, filename = "figures/by_k.pdf", device = cairo_pdf, 
+       width = 7.01, height = 4, units = "in")
+
+```
+
+```{r dev_by_k}
+
+selected_data <- dev_by_k %>%
+    na.omit() %>%
+    mutate(CI=1.96 * 100* sqrt(dev_acc/100*(1-dev_acc/100) / 9842)
+    )
+
+title <- expression(paste('Accuracy by ', italic("k"), " for a Finetuned Model"))
+ylab <- "Acc."
+
+# lines
+(lines <- selected_data %>% 
+  ggplot(aes(k,dev_acc)) + 
+  # geom_smooth(method='loess', lwd=1.1) +
+  geom_line(lwd=1) +
+  geom_point(shape=19, size=2) + 
+  labs(title=title, x=expression(italic('k'))) +
+    geom_errorbar(aes(ymin=dev_acc-CI, ymax=dev_acc+CI), width=.2) + 
+  scale_y_continuous(limits=c(80,90), oob=rescale_none) + 
+  scale_x_continuous(limits=c(0,20), oob=rescale_none, 
+                     labels=c(1,2,4,6,8,10,12,14,16,18,20), breaks=c(1,2,4,6,8,10,12,14,16,18,20)) + 
+  ylab(ylab) +
+  theme)
+
+ggsave(lines, filename = "figures/dev_by_k.pdf", device = cairo_pdf, 
+       width = 7.01, height = 4, units = "in")
+
+```
+
+```{r seed_variance}
+
+selected_data <- seed_variance %>%
+    na.omit() %>% 
+    mutate(CI=1.96*sqrt(test_acc*(100-test_acc)/50000),
+           method = case_when(method=='baseline'~'No Retrieval',
+                              method=='textcat-missing'~"Full-Info",
+                              method=='textcat'~"TᴇxᴛCᴀᴛ \n Evidential",
+                              method=='ELV'~"H-Mᴇᴀɴ \n Evidential",
+                               TRUE ~ as.character(method)),
+           method=factor(method, levels=c('No Retrieval', "Full-Info", "TᴇxᴛCᴀᴛ \n Evidential", "H-Mᴇᴀɴ \n Evidential"))
+    )
+
+title <- TeX('Seed Variance')
+xlab <- TeX("")
+ylab <- "Acc."
+
+# side-by-side bar
+(boxplot <- selected_data %>% 
+  ggplot(aes(method,test_acc,group=method)) + 
+  geom_boxplot(fill='gray') +
+  geom_point(fill='gray') + 
+  labs(title=title) +
+  scale_y_continuous(limits=c(50,100), oob=rescale_none) + 
+  xlab(xlab) + ylab(ylab) +
+  scale_fill_manual(values = c(cbp1), name = TeX("Condition")) + 
+  theme
+)
+
+ggsave(boxplot, filename = "figures/seed_var.pdf", device = cairo_pdf, 
+       width = 7, height = 4, units = "in")
+
+```
+
+
+
+
+
+
+

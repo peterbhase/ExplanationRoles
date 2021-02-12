@@ -1,0 +1,7 @@
+seed,method,condition,dev_acc,test_acc
+0,textcat,learning,92.82,92.578
+0,textcat,fixed,83.31,83.042
+0,textcat,optimal,92.15,91.926
+0,ELV,learning,92.3,91.61
+0,ELV,fixed,84.02,83.242
+0,ELV,optimal,92.36,91.856

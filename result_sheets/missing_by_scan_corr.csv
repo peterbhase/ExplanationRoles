@@ -1,0 +1,13 @@
+seed,condition,corr,dev_acc,test_acc
+0,optR,0.6,98.72,98.71
+0,optR,0.7,98.94,98.846
+0,optR,0.8,98.5,98.104
+0,optR,0.9,94.36,94.146
+0,memorization,0.6,61.99,61.49
+0,memorization,0.7,63.55,63.114
+0,memorization,0.8,65.8,65.72
+0,memorization,0.9,66.92,67.06
+0,optR,1,75.22,74.752
+0,optR,0.5,99.12,99.024
+0,memorization,0.5,62.3,62.2
+0,memorization,1,68.54,68.19

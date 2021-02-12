@@ -1,0 +1,13 @@
+seed,k,condition,dev_acc,test_acc
+0,10,missing,98.3,98.174
+0,8,missing,89.86,89.864
+0,6,missing,89.15,88.898
+0,4,missing,89.86,89.536
+0,2,missing,89.99,89.952
+0,1,missing,90.87,90.536
+0,10,evidential,90.16,89.508
+0,8,evidential,90.41,90.93
+0,6,evidential,92.02,91.464
+0,4,evidential,90.41,89.96
+0,2,evidential,92.57,92.26
+0,1,evidential,78.91,78.948

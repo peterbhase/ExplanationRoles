@@ -1,0 +1,9 @@
+seed,condition,causal,corr,dev_acc,test_acc
+0,optR,1,1,75.2,74.7
+0,optR,0,1,75.22,74.752
+0,fixed,1,1,71.81,72.096
+0,learning,1,1,75.31,74.76
+0,optR,0,0.5,99.12,99.024
+0,optR,1,0.5,71.35,71.19
+0,Baseline,-1,0.5,62.3,62.2
+0,Baseline,-1,1,68.54,68.19

@@ -1,0 +1,7 @@
+seed,model,n,translate,dev_acc,test_acc
+0,roberta-base,5000,1,64.62,63.746
+0,roberta-base,10000,1,93.49,93.686
+0,roberta-base,20000,1,98.67,98.476
+0,roberta-base,5000,0,99.23,99.29
+0,roberta-base,10000,0,99.35,99.284
+0,roberta-base,20000,0,99.74,99.704

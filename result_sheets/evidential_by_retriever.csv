@@ -1,0 +1,7 @@
+seed,train,retriever,dev_acc,test_acc
+0,0,random,56.66,55.532
+0,1,random,55.58,55.764
+0,0,roberta-base,56.42,56.444
+0,1,roberta-base,57.09,57.576
+0,0,sentencebert,79.35,79.44
+0,1,sentencebert,92.27,91.94
