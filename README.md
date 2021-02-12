@@ -36,7 +36,7 @@ json==2.0.9
 
 Experimental results in the paper are replicated by running `run_tasks.py` with a special experiment command. Below, we give commands organized by the corresponding research question in the paper. For synthetic data experiments, all that is required is that you first set `save_dir` and `cache_dir` in `main.py`. We later give instructions for downloading and formatting data for experiments with existing datasets.
 
-The `run_tasks.py` script can take a few additional arguments when desired: `--seeds` gives the number of seeds to run for each session (defaults to 1), '--gpu' controls the GPU, and `--train_batch_size` and `--grad_accumulation_factor` can be used to control the effective train batch size and memory usage. 
+The `run_tasks.py` script can take a few additional arguments when desired: `--seeds` gives the number of seeds to run for each session (defaults to 1), `--gpu` controls the GPU, and `--train_batch_size` and `--grad_accumulation_factor` can be used to control the effective train batch size and memory usage. 
 
 *RQ1*
 
