@@ -20,7 +20,7 @@ utils.py --> data loading and miscellaneous utilities
 write_synthetic_data.py --> script for writing synthetic datasets
 ```
 
-The code is written in Python 3.6. `plots.Rmd` is an R markdown file that makes the plots for each experiment. The package requirements are:
+The code is written in python 3.6. `plots.Rmd` is an R markdown file that makes the plots for each experiment. The package requirements are:
 
 ```
 torch==1.4
@@ -36,62 +36,87 @@ json==2.0.9
 
 Experimental results in the paper are replicated by running `run_tasks.py` with a special experiment command. Below, we give commands organized by the corresponding research question in the paper. For synthetic data experiments, all that is required is that you first set `save_dir` and `cache_dir` in `main.py`. We later give instructions for downloading and formatting data for experiments with existing datasets.
 
-The `run_tasks.py` script can take a few additional arguments when desired: `--seeds` gives the number of seeds to run for each session, and `--train_batch_size` and `--grad_accumulation_factor` can be used to control the effective train batch size and memory usage. 
+The `run_tasks.py` script can take a few additional arguments when desired: `--seeds` gives the number of seeds to run for each session (defaults to 1), '--gpu' controls the GPU, and `--train_batch_size` and `--grad_accumulation_factor` can be used to control the effective train batch size and memory usage. 
 
 *RQ1*
 
-python run_tasks.py --gpu GPU --experiment memorization_by_num_tasks
+`python run_tasks.py --experiment memorization_by_num_tasks`
 
 *RQ2*
 
-python run_tasks.py --gpu GPU --experiment missing_by_learning
+`python run_tasks.py --experiment memorization_by_n`
+
+`python run_tasks.py --experiment missing_by_learning`
 
 *RQ3*
 
+`python run_tasks.py --experiment evidential_by_learning`
+`python run_tasks.py --experiment recomposable_by_learning`
+
 *RQ4*
+
+`python run_tasks.py --experiment evidential_opt_by_method_n`
 
 *RQ5*
 
+`python run_tasks.py --experiment memorization_by_r_smoothness`
+
 *RQ6*
+
+`python run_tasks.py --experiment missing_by_feature_correlation`
+
+`python run_tasks.py --experiment missing_opt_by_translate_model_n`
 
 *RQ7*
 
+`python run_tasks.py --experiment evidential_by_retriever`
+
+`python run_tasks.py --experiment evidential_by_init`
+
 *RQ8*
 
-Each of the remaining experiments has its own corresponding command. 
+The dataused used in the paper can be obtained here: [TACRED](https://catalog.ldc.upenn.edu/LDC2018T24) and [e-SNLI](https://github.com/OanaMariaCamburu/e-SNLI) (SemEval included here), and should be placed into folders in `data/` titled `semeval`, `tacred`, and `eSNLI`. Running `make_SNLI_data.py` will format the SNLI data into .csv files as expected by data utilities in `utils.py`. 
 
-semeval_baseline
-semeval_textcat
-semeval_textcat_by_context
+Experiments with existing datasets:
 
-tacred_baseline
-tacred_textcat
-tacred_textcat_by_context
+**SemEval**
 
-esnli_baseline
-esnli_textcat
-esnli_textcat_by_context
+`python run_tasks.py --experiment semeval_baseline`
 
-memorization_by_n
-memorization_by_num_tasks
-memorization_by_r_smoothness
-memorization_by_seed_test
+`python run_tasks.py --experiment semeval_textcat`
 
-missing_by_learning
-missing_by_k
-missing_by_rb
-missing_by_r_smoothness 
-missing_by_feature_correlation   
-missing_opt_by_translate_model_n
-missing_by_seed_test
+`python run_tasks.py --experiment semeval_textcat_by_context`
 
-evidential_by_learning
-evidential_opt_by_method_c
-evidential_opt_by_method_n
-evidential_by_c
-evidential_by_k
-evidential_by_init
-evidential_by_retriever
-evidential_by_seed_test
+**TACRED**
 
-recomposable_by_learning
+`python run_tasks.py --experiment tacred_baseline`
+
+`python run_tasks.py --experiment tacred_textcat`
+
+`python run_tasks.py --experiment tacred_textcat_by_context`
+
+**e-SNLI**
+
+`python run_tasks.py --experiment esnli_baseline`
+
+`python run_tasks.py --experiment esnli_textcat`
+
+`python run_tasks.py --experiment esnli_textcat_by_context`
+
+Additional tuning experiments:
+
+`python run_tasks.py --experiment missing_by_k`
+
+`python run_tasks.py --experiment missing_by_rb`
+
+`python run_tasks.py --experiment evidential_opt_by_method_c`
+
+`python run_tasks.py --experiment evidential_by_k`
+
+Seed tests:
+
+`python run_tasks.py --experiment memorization_by_seed_test --seeds 10`
+
+`python run_tasks.py --experiment missing_by_seed_test --seeds 5`
+
+`python run_tasks.py --experiment evidential_by_seed_test --seeds 5`
