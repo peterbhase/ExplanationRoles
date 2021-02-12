@@ -51,6 +51,7 @@ The `run_tasks.py` script can take a few additional arguments when desired: `--s
 *RQ3*
 
 `python run_tasks.py --experiment evidential_by_learning`
+
 `python run_tasks.py --experiment recomposable_by_learning`
 
 *RQ4*
@@ -79,7 +80,7 @@ The dataused used in the paper can be obtained here: [TACRED](https://catalog.ld
 
 Experiments with existing datasets:
 
-**SemEval**
+*SemEval*
 
 `python run_tasks.py --experiment semeval_baseline`
 
@@ -87,7 +88,7 @@ Experiments with existing datasets:
 
 `python run_tasks.py --experiment semeval_textcat_by_context`
 
-**TACRED**
+*TACRED*
 
 `python run_tasks.py --experiment tacred_baseline`
 
@@ -95,7 +96,7 @@ Experiments with existing datasets:
 
 `python run_tasks.py --experiment tacred_textcat_by_context`
 
-**e-SNLI**
+*e-SNLI*
 
 `python run_tasks.py --experiment esnli_baseline`
 
