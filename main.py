@@ -369,8 +369,6 @@ if __name__ == "__main__":
     torch.random.manual_seed(args.seed)
     if multi_gpu:
         torch.cuda.manual_seed_all(args.seed)
-    args.save_dir = os.path.join(base_dir, 'saved_models')
-    args.cache_dir = os.path.join(base_dir, 'cached_models')
 
     # make Report object, stats_dict, and paths
     args.experiment_name = experiment_name = utils.get_experiment_name(args) if args.experiment_name is None else args.experiment_name
